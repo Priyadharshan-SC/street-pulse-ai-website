@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import axios from 'axios';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import markerIconPng from 'leaflet/dist/images/marker-icon.png';
@@ -10,50 +11,62 @@ const DefaultIcon = L.icon({
   iconUrl: markerIconPng,
   shadowUrl: markerShadowPng,
   iconSize: [25, 41],
-  iconAnchor: [12, 41]
+  iconAnchor: [12, 41],
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Get image based on category (for popup preview)
+// 🔍 Category-wise image
 function getVendorImage(category) {
   const keyword = category.toLowerCase().replace(/\s/g, '-');
   return `https://source.unsplash.com/300x180/?${keyword}-food&sig=${Math.floor(Math.random() * 1000)}`;
 }
 
-// Sample menus by category
+// 🍴 Sample menus by category
 const sampleMenus = {
-  "Chaat": ["Pani Puri", "Bhel Puri", "Aloo Tikki"],
-  "South Indian": ["Idli", "Dosa", "Vada"],
-  "Chinese": ["Noodles", "Manchurian", "Spring Roll"],
-  "Juice": ["Mango Shake", "Sugarcane Juice", "Lemon Soda"],
-  "Snacks": ["Samosa", "Kachori", "Pakoda"],
-  "All": ["Pav Bhaji", "Grilled Sandwich", "Chole Bhature"]
+  Chaat: ['Pani Puri', 'Bhel Puri', 'Aloo Tikki'],
+  'South Indian': ['Idli', 'Dosa', 'Vada'],
+  Chinese: ['Noodles', 'Manchurian', 'Spring Roll'],
+  Juice: ['Mango Shake', 'Sugarcane Juice', 'Lemon Soda'],
+  Snacks: ['Samosa', 'Kachori', 'Pakoda'],
+  All: ['Pav Bhaji', 'Grilled Sandwich', 'Chole Bhature'],
 };
 
 export default function Explore() {
   const [vendors, setVendors] = useState([]);
   const [filtered, setFiltered] = useState([]);
-  const [category, setCategory] = useState("All");
+  const [category, setCategory] = useState('All');
   const [minRating, setMinRating] = useState(1);
 
+  // 📦 Fetch vendors from Firestore
   useEffect(() => {
-    axios.get("http://localhost:5000/api/vendors")
-      .then(res => {
-        setVendors(res.data);
-        setFiltered(res.data);
-      })
-      .catch(err => console.error("❌ Error fetching vendors", err));
+    const fetchData = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'vendors'));
+        const vendorList = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setVendors(vendorList);
+        setFiltered(vendorList);
+      } catch (err) {
+        console.error('❌ Error fetching vendors from Firestore', err);
+      }
+    };
+
+    fetchData();
   }, []);
 
+  // 🎯 Filter logic
   useEffect(() => {
-    const result = vendors.filter(v =>
-      (category === "All" || v.category === category) &&
-      v.hygiene >= minRating
+    const result = vendors.filter(
+      v =>
+        (category === 'All' || v.category === category) &&
+        v.hygiene >= minRating
     );
     setFiltered(result);
   }, [category, minRating, vendors]);
 
-  const categories = ["All", "Chaat", "South Indian", "Chinese", "Juice", "Snacks"];
+  const categories = ['All', 'Chaat', 'South Indian', 'Chinese', 'Juice', 'Snacks'];
 
   return (
     <div className="p-4">
@@ -83,7 +96,9 @@ export default function Explore() {
             className="border px-3 py-1 rounded"
           >
             {[1, 2, 3, 4, 5].map(r => (
-              <option key={r} value={r}>{r}+</option>
+              <option key={r} value={r}>
+                {r}+
+              </option>
             ))}
           </select>
         </div>
@@ -91,13 +106,17 @@ export default function Explore() {
       </div>
 
       {/* Map Display */}
-      <MapContainer center={[11.0168, 76.9558]} zoom={14} style={{ height: '500px', width: '100%' }}>
+      <MapContainer
+        center={[11.0168, 76.9558]}
+        zoom={14}
+        style={{ height: '500px', width: '100%' }}
+      >
         <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
+          attribution="&copy; OpenStreetMap contributors"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {filtered.map((vendor) => {
-          const menuItems = sampleMenus[vendor.category] || sampleMenus["All"];
+        {filtered.map(vendor => {
+          const menuItems = sampleMenus[vendor.category] || sampleMenus['All'];
           return (
             <Marker key={vendor.id} position={[vendor.lat, vendor.lng]}>
               <Popup minWidth={250}>
@@ -108,9 +127,12 @@ export default function Explore() {
                     loading="lazy"
                     className="mb-2 w-full rounded-md"
                   />
-                  <strong className="text-lg">{vendor.name}</strong><br />
-                  Category: {vendor.category}<br />
-                  Hygiene: ⭐ {vendor.hygiene}/5<br />
+                  <strong className="text-lg">{vendor.name}</strong>
+                  <br />
+                  Category: {vendor.category}
+                  <br />
+                  Hygiene: ⭐ {vendor.hygiene}/5
+                  <br />
                   <p className="mt-2 font-medium text-gray-700">Menu Preview:</p>
                   <ul className="list-disc ml-5 text-gray-600 text-xs">
                     {menuItems.map((item, idx) => (

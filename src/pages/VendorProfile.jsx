@@ -1,6 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import { doc, getDoc } from 'firebase/firestore';
+import { db, storage } from '../firebase';
+import { getDownloadURL, ref } from 'firebase/storage';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -19,38 +21,27 @@ L.Marker.prototype.options.icon = DefaultIcon;
 export default function VendorProfile() {
   const { id } = useParams();
   const [vendor, setVendor] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState([]);
   const [newReview, setNewReview] = useState({ name: "", rating: 5, comment: "" });
 
   useEffect(() => {
-    axios.get("http://localhost:5000/api/vendors")
-      .then(res => {
-        const found = res.data.find(v => v.id.toString() === id);
-        setVendor(found);
-      })
-      .catch(err => console.error("Error fetching vendor", err));
+    const fetchVendor = async () => {
+      try {
+        const docRef = doc(db, 'vendors', id);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          setVendor({ id: docSnap.id, ...docSnap.data() });
+        }
+      } catch (err) {
+        console.error("Error fetching vendor", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchVendor();
   }, [id]);
-
-  if (!vendor) return <p className="p-4 text-gray-600">Loading vendor details...</p>;
-
-  // ✅ Only run image logic after vendor is loaded
-  let bannerImg, galleryImages;
-  try {
-    bannerImg = require(`../assets/vendors/${vendor.id}/banner.jpg`);
-    galleryImages = [
-      require(`../assets/vendors/${vendor.id}/food1.jpg`),
-      require(`../assets/vendors/${vendor.id}/food2.jpg`),
-      require(`../assets/vendors/${vendor.id}/food3.jpg`)
-    ];
-  } catch (e) {
-    console.warn(`Missing images for vendor ${vendor.id}`, e);
-    bannerImg = require(`../assets/fallback/banner.jpg`);
-    galleryImages = [
-      require(`../assets/fallback/food1.jpg`),
-      require(`../assets/fallback/food2.jpg`),
-      require(`../assets/fallback/food3.jpg`)
-    ];
-  }
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -60,12 +51,16 @@ export default function VendorProfile() {
     }
   };
 
+  if (loading) return <p className="p-4 text-gray-600">Loading vendor details...</p>;
+  if (!vendor) return <p className="p-4 text-red-600">Vendor not found.</p>;
+
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-xl shadow-lg mt-6">
       <Link to="/explore" className="text-blue-500 text-sm mb-4 inline-block">← Back to Explore</Link>
 
+      {/* ✅ Banner image from Firestore (Firebase Storage URL) */}
       <img
-        src={bannerImg}
+        src={vendor.bannerURL}
         alt="Vendor Banner"
         className="rounded-lg mb-4 w-full object-cover h-60"
       />
@@ -96,16 +91,18 @@ export default function VendorProfile() {
         </MapContainer>
       </div>
 
-      {/* 🖼️ Gallery Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {galleryImages.map((src, idx) => (
+      {/* ✅ Gallery Section from Firebase */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+        {vendor.gallery?.length > 0 ? vendor.gallery.map((img, idx) => (
           <img
             key={idx}
-            src={src}
-            alt={`Food ${idx + 1}`}
+            src={img}
+            alt={`Gallery ${idx + 1}`}
             className="rounded-xl shadow hover:scale-105 transition-transform duration-300"
           />
-        ))}
+        )) : (
+          <p className="text-gray-500">No gallery images uploaded.</p>
+        )}
       </div>
 
       {/* Review Form */}
