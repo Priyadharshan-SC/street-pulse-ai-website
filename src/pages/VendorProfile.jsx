@@ -146,7 +146,7 @@ export default function VendorProfile() {
       </div>
 
       {/* Review List */}
-      <div>
+      <div>k
         <h3 className="text-2xl font-semibold mb-4">Customer Reviews</h3>
         {reviews.length === 0 && <p className="text-gray-500">No reviews yet.</p>}
         {reviews.map((r, i) => (
