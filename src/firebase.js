@@ -7,7 +7,7 @@ import { getStorage } from "firebase/storage"; // ✅ Add this
 
 // ✅ Your Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyDcRMuzYOrn4Wwowhpmj1BZrRNKVUXrTyA",
+  apiKey: "YOUR API KEY",
   authDomain: "street-pulse-ai.firebaseapp.com",
   projectId: "street-pulse-ai",
   storageBucket: "street-pulse-ai.appspot.com",  // ✅ already corrected
